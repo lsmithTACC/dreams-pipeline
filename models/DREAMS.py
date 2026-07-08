@@ -100,16 +100,11 @@ class DREAMS(Base_Model):
         	num_nodes_out = self.num_nodes_dm,
         	activation = self.activation)
 
-        self.loss = SamplesLoss("sinkhorn", p=2, blur=0.05, backend='multiscale')
+        self.loss = SamplesLoss("sinkhorn", p=2, blur=0.05)
 
 
     # Forward pass function
     def forward(self, x):
-
-    	##### FINAL STEP: INSERT ESTIMATE OF EDGE_INDEX AND EDGE_WEIGHT HERE #####
-    	# Seems like most particle simulators divide the domain into a volumetric grid, 
-    	# and only search neighboring voxels
-    	# cKDTree from scipy is also a really cool approach here
 
     	# Device
     	device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -190,27 +185,14 @@ class DREAMS(Base_Model):
                 if ind+self.batch_size > data_in.size()[0]:
                     ind_batch = range(ind,data_in.size()[0])
 
-                start_time = time.perf_counter()
                 yPred = self.forward(data_in[ind_batch])
-                end_time = time.perf_counter()
-                execution_time = end_time - start_time
-                print(f"Forward pass time: {execution_time:.6f} seconds")
 
-                start_time = time.perf_counter() 
                 loss = self.loss(yPred, data_out[ind_batch])
                 loss = loss.mean()
-                end_time = time.perf_counter()
-                execution_time = end_time - start_time
-                print(f"Loss calculation time: {execution_time:.6f} seconds")
 
-                start_time = time.perf_counter()
                 loss.backward()
                 optimizer.step()
-                end_time = time.perf_counter()
-                execution_time = end_time - start_time
-                print(f"Backpropagation time: {execution_time:.6f} seconds")
                 loss_track_train += float(loss.item())
-                sss
 
             # Test loop
             for ind in range(0,data_in_test.size()[0], self.batch_size):
