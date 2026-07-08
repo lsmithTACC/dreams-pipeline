@@ -23,7 +23,7 @@ git clone https://github.com/lsmithTACC/dreams-pipeline.git
 ```
 sbatch run_tacc_surrogates.sh
 ```
-This submission script will write the code's progress to a slurm log file. You can monitor your training progress by passing the log file to `tail`, or by simply opening the log file with `vim`. All errors will be traced within this log file. Once training has completed, the script should generate a png file (test_train_loss.png) that plots learning curves for the train and test data, and you should see a model file (dreams.pth) appear within the dreams-pipeline directory.
+	- This submission script will write the code's progress to a slurm log file. You can monitor your training progress by passing the log file to `tail`, or by simply opening the log file with `vim`. All errors will be traced within this log file. Once training has completed, the script should generate a png file (test_train_loss.png) that plots learning curves for the train and test data, and you should see a model file (dreams.pth) appear within the dreams-pipeline directory.
 
 6. Optional: as an alterative to sbatch, you may want to run the pipeline in an interactive session. This is useful for scenarios in which you need to run the pipeline several times over a short period, such as debugging. Toward this end we have included a version of the job submission script intended for use in an interaction session:
 ```
