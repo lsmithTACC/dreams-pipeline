@@ -13,3 +13,4 @@ torch_geometric
 normflows
 geomloss
 pykeops
+tensorflow
