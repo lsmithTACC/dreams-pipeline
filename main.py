@@ -19,10 +19,10 @@ print(f"Using device: {device}")
 
 # Dataset size/global constants
 num_snapshots = 128
-num_particles_gas = 1e5
-num_particles_dm = 1e5
-num_features_gas = 12
-num_features_dm = 12
+#num_particles_gas = 1e5
+#num_particles_dm = 1e5
+#num_features_gas = 12
+#num_features_dm = 12
 
 # Number of nearest neighbors in graph neural network
 num_k = 10
@@ -48,9 +48,25 @@ test_size = 0.20
 print('Loading data...')
 
 # Initialize  
-rng = np.random.default_rng()
-data_in = rng.random((int(num_snapshots),int(num_particles_gas),int(num_features_gas)))
-data_out = rng.random((int(num_snapshots),int(num_particles_dm),int(num_features_dm)))
+#Gasses first --> Data in
+files  = glob.glob("/scratch/11092/im68/subsets/*0.npy")
+n_gas_files = len(files)
+mats = [np.load(i) for i in files]
+zsnaps = tuple(mats)
+gas_data = np.concatenate(zsnaps,axis = 0)
+print(gas_data.shape)
+num_particles_gas = gas_data.shape[1]
+#DM Next --> Data out
+files  = glob.glob("/scratch/11092/im68/subsets/*1.npy")
+n_dm_files = len(files)
+mats = [np.load(i) for i in files]
+zsnaps = tuple(mats)
+dmatter_data = np.concatenate(zsnaps,axis = 0)
+print(dmatter_data.shape)
+num_particles_dm = dmatter_data.shape[1]
+
+data_in = gas_data
+data_out = dmatter_data
 
 # Convert to tensor
 data_in = torch.tensor(data_in,dtype=torch.float32)
@@ -59,6 +75,7 @@ data_out = torch.tensor(data_out,dtype=torch.float32)
 # Move to GPU
 #data_in = data_in.to(device)
 #data_out = data_out.to(device)
+
 
 
 
@@ -79,19 +96,36 @@ data_out = torch.tensor(data_out,dtype=torch.float32)
 print('Normalizing data...')
 
 # Loop over features for gas particles
-for ind in range(num_features_gas):
-    data_in[:,:,ind] = (data_in[:,:,ind] - torch.mean(data_in[:,:,ind]))/torch.std(data_in[:,:,ind])
+nhdf = data_in.size()[0]
+nvar = data_in.size()[-1]
+num_features_gas = nvar
+print(num_features_gas)
+print(nhdf,nvar)
+gas_means_metadata = torch.zeros(nhdf,nvar)
+gas_std_metadata = torch.zeros(nhdf,nvar)
+for f in range(nhdf):
+    for v in range(nvar)[:-1]: 
+        mean = torch.mean(data_in[f,:,v])
+        std = torch.std(data_in[f,:,v])
+        gas_means_metadata[f,v] = mean
+        gas_std_metadata[f,v] = std
+        data_in[f,:,v] = (data_in[f,:,v] - mean)/std
 
 # Loop over features for DM particles
-mean_dm = torch.zeros(num_features_dm)
-std_dm = torch.zeros(num_features_dm)
-for ind in range(num_features_dm):
-    mean_dm[ind] = torch.mean(data_out[:,:,ind])
-    std_dm[ind] = torch.std(data_out[:,:,ind])
-    data_out[:,:,ind] = (data_out[:,:,ind] - mean_dm[ind])/std_dm[ind]
-
-
-
+nhdf = data_out.size()[0]
+nvar = data_out.size()[-1]
+num_features_dm = nvar
+print(num_features_dm)
+print(nhdf,nvar)
+dm_means_metadata = torch.zeros(nhdf,nvar)
+dm_std_metadata = torch.zeros(nhdf,nvar)
+for f in range(nhdf):
+    for v in range(nvar)[:-1]: 
+        mean = torch.mean(data_out[f,:,v])
+        std = torch.std(data_out[f,:,v])
+        dm_means_metadata[f,v] = mean
+        dm_std_metadata[f,v] = std
+        data_out[f,:,v] = (data_out[f,:,v] - mean)/std
 # -------------------- Model Initialization -------------------- #
 #
 # In the code block below, you will initialize an instance of your ML model, the architecture of which is pulled
@@ -129,6 +163,7 @@ dreams = dreams.to(device)
 data_in_train, data_in_test, data_out_train, data_out_test = train_test_split(
 	data_in, data_out, test_size=test_size, random_state=42
 	)
+dreams = torch.load("dreams.pth",weights_only = False)
 
 # Train model
 dreams.train(data_in_train,data_in_test,data_out_train,data_out_test)

@@ -53,6 +53,7 @@ class GCNModel(nn.Module):
     def forward(self, x, edge_index):
 
         # Graph convolutions
+        print(x.shape)
         x = self.conv1(x, edge_index=edge_index)
         x = self.activation(x)
 
@@ -61,7 +62,6 @@ class GCNModel(nn.Module):
 
         x = self.conv3(x, edge_index=edge_index)
         x = self.activation(x)
-
         return x
 
 
@@ -149,8 +149,8 @@ class DREAMS(Base_Model):
     	yPred = self.model(x, edge_index)
 
     	# Reshape output matrix so it can be used in loss function
-    	yPred = yPred.reshape(int(batch_size), int(self.num_nodes_dm), int(self.num_features_dm))
-
+    	yPred = yPred.reshape(int(batch_size), int(self.num_nodes_gas), int(self.num_features_dm))
+    	yPred = yPred[:,:self.num_nodes_dm,:]
     	return yPred
 
     # Training function 
