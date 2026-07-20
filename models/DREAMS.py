@@ -48,6 +48,9 @@ class GCNModel(nn.Module):
         self.conv1 = GCNConv(in_channels,hidden_channels)
         self.conv2 = GCNConv(hidden_channels,hidden_channels)
         self.conv3 = GCNConv(hidden_channels,out_channels)
+        self.conv4 = nn.Conv2d(in_channels=self.out_channels,out_channels=self.out_channels,kernel_size=5,padding='same')
+
+        self.upsample = nn.Upsample(scale_factor=2)
 
 
     def forward(self, x, edge_index):
@@ -62,6 +65,14 @@ class GCNModel(nn.Module):
 
         x = self.conv3(x, edge_index=edge_index)
         x = self.activation(x)
+
+        x = torch.transpose(x, 1, 2)
+        x = self.upsample(x)
+        x = self.conv4(x)
+        x = self.activation(x)
+        x = torch.transpose(x, 1, 2)
+
+
         return x
 
 
