@@ -49,7 +49,7 @@ print('Loading data...')
 
 # Initialize  
 #Gasses first --> Data in
-files  = glob.glob("/scratch/11092/im68/subsets/*0.npy")
+files  = glob.glob("/scratch/11092/im68/subsets/Baryons/*")
 n_gas_files = len(files)
 mats = [np.load(i) for i in files]
 zsnaps = tuple(mats)
@@ -57,7 +57,7 @@ gas_data = np.concatenate(zsnaps,axis = 0)
 print(gas_data.shape)
 num_particles_gas = gas_data.shape[1]
 #DM Next --> Data out
-files  = glob.glob("/scratch/11092/im68/subsets/*1.npy")
+files  = glob.glob("/scratch/11092/im68/subsets/Dark_Matter/*")
 n_dm_files = len(files)
 mats = [np.load(i) for i in files]
 zsnaps = tuple(mats)
