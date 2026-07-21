@@ -52,7 +52,7 @@ print('Loading data...')
 files  = glob.glob("/scratch/11092/im68/subsets/Baryons/*")
 n_gas_files = len(files)
 mats = [np.load(i) for i in files]
-bary_max = np.max([np.load(i).shape[1] for i in bary_files])
+bary_max = np.max([np.load(i).shape[1] for i in files])
 zsnaps = tuple(mats)
 resized_zsnaps = []
 for i in zsnaps:
@@ -67,7 +67,7 @@ num_particles_gas = gas_data.shape[1]
 files  = glob.glob("/scratch/11092/im68/subsets/Dark_Matter/*")
 n_dm_files = len(files)
 mats = [np.load(i) for i in files]
-dm_max = np.max([np.load(i).shape[1] for i in dm_files])
+dm_max = np.max([np.load(i).shape[1] for i in files])
 zsnaps = tuple(mats)
 resized_zsnaps = []
 for i in zsnaps:
@@ -177,7 +177,7 @@ dreams = dreams.to(device)
 data_in_train, data_in_test, data_out_train, data_out_test = train_test_split(
 	data_in, data_out, test_size=test_size, random_state=42
 	)
-dreams = torch.load("dreams.pth",weights_only = False)
+#dreams = torch.load("dreams.pth",weights_only = False)
 
 # Train model
 dreams.train(data_in_train,data_in_test,data_out_train,data_out_test)
