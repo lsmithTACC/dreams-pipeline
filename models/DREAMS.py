@@ -53,10 +53,9 @@ class GCNModel(nn.Module):
         self.upsample = nn.Upsample(scale_factor=2)
 
 
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, original_shape):
 
         # Graph convolutions
-        print(x.shape)
         x = self.conv1(x, edge_index=edge_index)
         x = self.activation(x)
 
@@ -66,6 +65,7 @@ class GCNModel(nn.Module):
         x = self.conv3(x, edge_index=edge_index)
         x = self.activation(x)
 
+        x = torch.reshape(x,(original_shape[0],original_shape[1],self.out_channels))
         x = torch.transpose(x, 1, 2)
         x = self.upsample(x)
         x = self.conv4(x)
@@ -122,6 +122,7 @@ class DREAMS(Base_Model):
 
     	# Extract data shape
     	batch_size, N, _ = x.shape
+    	original_shape = x.shape
 
     	# Initalize new objects for graph neural net
     	xs = [] # This will be the x tensor with flattened batch dimension
@@ -157,11 +158,8 @@ class DREAMS(Base_Model):
     	batch = torch.tensor(batch_vec, dtype=torch.long).to(device)
 
     	# Pass flattened data to and edge index to the GCN model
-    	yPred = self.model(x, edge_index)
+    	yPred = self.model(x, edge_index, original_shape)
 
-    	# Reshape output matrix so it can be used in loss function
-    	yPred = yPred.reshape(int(batch_size), int(self.num_nodes_gas), int(self.num_features_dm))
-    	yPred = yPred[:,:self.num_nodes_dm,:]
     	return yPred
 
     # Training function 
