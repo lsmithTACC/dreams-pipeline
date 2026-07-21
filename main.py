@@ -52,7 +52,10 @@ print('Loading data...')
 files  = glob.glob("/scratch/11092/im68/subsets/Baryons/*")
 n_gas_files = len(files)
 mats = [np.load(i) for i in files]
-bary_max = np.max([np.load(i).shape[1] for i in files])
+
+max_particles = int(1e5)
+
+bary_max = max_particles #np.max([np.load(i).shape[1] for i in files])
 zsnaps = tuple(mats)
 resized_zsnaps = []
 for i in zsnaps:
@@ -67,7 +70,7 @@ num_particles_gas = gas_data.shape[1]
 files  = glob.glob("/scratch/11092/im68/subsets/Dark_Matter/*")
 n_dm_files = len(files)
 mats = [np.load(i) for i in files]
-dm_max = np.max([np.load(i).shape[1] for i in files])
+dm_max = max_particles #np.max([np.load(i).shape[1] for i in files])
 zsnaps = tuple(mats)
 resized_zsnaps = []
 for i in zsnaps:
@@ -134,12 +137,15 @@ print(nhdf,nvar)
 dm_means_metadata = torch.zeros(nhdf,nvar)
 dm_std_metadata = torch.zeros(nhdf,nvar)
 for f in range(nhdf):
-    for v in range(nvar)[:-1]: 
+    for v in range(nvar): 
         mean = torch.mean(data_out[f,:,v])
         std = torch.std(data_out[f,:,v])
         dm_means_metadata[f,v] = mean
         dm_std_metadata[f,v] = std
         data_out[f,:,v] = (data_out[f,:,v] - mean)/std
+
+print(torch.mean(dm_std_metadata,dim=0))
+print(torch.mean(data_out,dim=(0,1)))        
 # -------------------- Model Initialization -------------------- #
 #
 # In the code block below, you will initialize an instance of your ML model, the architecture of which is pulled
@@ -151,7 +157,7 @@ for f in range(nhdf):
 print('Initializing model...')
 dreams = DREAMS(
 	hidden_channels = 64,
-	n_epoch = 5,
+	n_epoch = 20,
 	batch_size = 16,
 	learning_rate = 1e-3,
 	num_nodes_gas = num_particles_gas,

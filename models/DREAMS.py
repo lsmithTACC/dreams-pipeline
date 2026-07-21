@@ -66,11 +66,11 @@ class GCNModel(nn.Module):
         x = self.activation(x)
 
         x = torch.reshape(x,(original_shape[0],original_shape[1],self.out_channels))
-        x = torch.transpose(x, 1, 2)
-        x = self.upsample(x)
-        x = self.conv4(x)
-        x = self.activation(x)
-        x = torch.transpose(x, 1, 2)
+        #x = torch.transpose(x, 1, 2)
+        #x = self.upsample(x)
+        #x = self.conv4(x)
+        #x = self.activation(x)
+        #x = torch.transpose(x, 1, 2)
 
 
         return x
@@ -111,7 +111,7 @@ class DREAMS(Base_Model):
         	num_nodes_out = self.num_nodes_dm,
         	activation = self.activation)
 
-        self.loss = SamplesLoss("sinkhorn", p=2, blur=0.05)
+        self.loss = MSE() #SamplesLoss("sinkhorn", blur=0.2, debias=False, scaling=0.5, backend='online')
 
 
     # Forward pass function
