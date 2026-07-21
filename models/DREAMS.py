@@ -48,7 +48,7 @@ class GCNModel(nn.Module):
         self.conv1 = GCNConv(in_channels,hidden_channels)
         self.conv2 = GCNConv(hidden_channels,hidden_channels)
         self.conv3 = GCNConv(hidden_channels,out_channels)
-        self.conv4 = nn.Conv2d(in_channels=self.out_channels,out_channels=self.out_channels,kernel_size=5,padding='same')
+        self.conv4 = nn.Conv1d(in_channels=self.out_channels,out_channels=self.out_channels,kernel_size=5,padding='same')
 
         self.upsample = nn.Upsample(scale_factor=2)
 
@@ -196,7 +196,7 @@ class DREAMS(Base_Model):
 
                 yPred = self.forward(data_in[ind_batch])
 
-                loss = self.loss(yPred, data_out[ind_batch])
+                loss = self.loss(yPred.contiguous(), data_out[ind_batch])
                 loss = loss.mean()
 
                 loss.backward()
@@ -209,7 +209,7 @@ class DREAMS(Base_Model):
                 if ind+self.batch_size > data_in_test.size()[0]:
                     ind_batch = range(ind,data_in_test.size()[0])
                 yPred_test = self.forward(data_in_test[ind_batch])    
-                loss_track_test += float(self.loss(yPred_test, data_out_test[ind_batch]).mean().item()) 
+                loss_track_test += float(self.loss(yPred_test.contiguous(), data_out_test[ind_batch]).mean().item()) 
 
             end_time = time.perf_counter()
             print(
