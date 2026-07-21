@@ -52,16 +52,30 @@ print('Loading data...')
 files  = glob.glob("/scratch/11092/im68/subsets/Baryons/*")
 n_gas_files = len(files)
 mats = [np.load(i) for i in files]
+bary_max = np.max([np.load(i).shape[1] for i in bary_files])
 zsnaps = tuple(mats)
-gas_data = np.concatenate(zsnaps,axis = 0)
+resized_zsnaps = []
+for i in zsnaps:
+    nhdf = i.shape[0]
+    nvar = i.shape[-1]
+    i = np.resize(i,(nhdf,bary_max,nvar))
+    resized_zsnaps.append(i)
+gas_data = np.concatenate(resized_zsnaps,axis = 0)
 print(gas_data.shape)
 num_particles_gas = gas_data.shape[1]
 #DM Next --> Data out
 files  = glob.glob("/scratch/11092/im68/subsets/Dark_Matter/*")
 n_dm_files = len(files)
 mats = [np.load(i) for i in files]
+dm_max = np.max([np.load(i).shape[1] for i in dm_files])
 zsnaps = tuple(mats)
-dmatter_data = np.concatenate(zsnaps,axis = 0)
+resized_zsnaps = []
+for i in zsnaps:
+    nhdf = i.shape[0]
+    nvar = i.shape[-1]
+    i = np.resize(i,(nhdf,dm_max,nvar))
+    resized_zsnaps.append(i)
+dmatter_data = np.concatenate(resized_zsnaps,axis = 0)
 print(dmatter_data.shape)
 num_particles_dm = dmatter_data.shape[1]
 
@@ -191,8 +205,6 @@ print('done')
 print('Evaluating...')
 
 # Load model weights
-dreams = torch.load('dreams.pth',weights_only=False)
-
 # Define input samples for evaluation (random)
 ind_sample = np.random.randint(low=0, high=len(data_in), size=10)
 sample = data_in[ind_sample]
