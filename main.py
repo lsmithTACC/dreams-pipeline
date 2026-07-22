@@ -46,44 +46,71 @@ test_size = 0.20
 
 # Status update
 print('Loading data...')
+#Gas First
+gas_data = np.load("subsets/WDM/Baryons/z0sample.npy")
+snaps = gas_data.shape[0]
+nvar = gas_data.shape[-1]
+tru_add_mtx = np.empty((snaps,nvar))
+tru_div_mtx = np.empty((snaps,nvar))
+for s in range(snaps):
+    for i in range(3):
+        mean = gas_data[s,:,i].mean()
+        tru_add_mtx[s,i] = mean
+        gas_data[s,:,i] = gas_data[s,:,i] - mean
+        max_mag = abs(gas_data[s,:,i]).max()
+        tru_div_mtx[s,i] = max_mag
+        gas_data[s,:,i] = gas_data[s,:,i]/max_mag
+    tru_add_mtx[s,3] = gas_data[s,:,3].min()
+    gas_data[s,:,3] = (gas_data[s,:,3] - gas_data[s,:,3].min())+ 1e-8
+    tru_div_mtx[s,3] = 1
+    gas_data[s,:,3] = np.log10(gas_data[s,:,3])
+    gas_data[s,:,4] = np.log10(gas_data[s,:,4])
+    tru_add_mtx[s,4] = 0
+    tru_div_mtx[s,4] = 1
+    gas_data[s,:,5] = np.log10(gas_data[s,:,5])
+    tru_add_mtx[s,5] = 0
+    tru_div_mtx[s,5] = 1
+    for i in range(6,9):
+        mean = gas_data[s,:,i].mean()
+        tru_add_mtx[s,i] = mean
+        gas_data[s,:,i] = gas_data[s,:,i] - mean
+        max_mag = abs(gas_data[s,:,i]).max()
+        tru_div_mtx[s,i] = max_mag
+        gas_data[s,:,i] = gas_data[s,:,i]/max_mag
 
-# Initialize  
-#Gasses first --> Data in
-files  = glob.glob("/scratch/11092/im68/subsets/Baryons/*")
-n_gas_files = len(files)
-mats = [np.load(i) for i in files]
+#Dm Next...
 
-max_particles = int(1e5)
-
-bary_max = max_particles #np.max([np.load(i).shape[1] for i in files])
-zsnaps = tuple(mats)
-resized_zsnaps = []
-for i in zsnaps:
-    nhdf = i.shape[0]
-    nvar = i.shape[-1]
-    i = np.resize(i,(nhdf,bary_max,nvar))
-    resized_zsnaps.append(i)
-gas_data = np.concatenate(resized_zsnaps,axis = 0)
-print(gas_data.shape)
-num_particles_gas = gas_data.shape[1]
-#DM Next --> Data out
-files  = glob.glob("/scratch/11092/im68/subsets/Dark_Matter/*")
-n_dm_files = len(files)
-mats = [np.load(i) for i in files]
-dm_max = max_particles #np.max([np.load(i).shape[1] for i in files])
-zsnaps = tuple(mats)
-resized_zsnaps = []
-for i in zsnaps:
-    nhdf = i.shape[0]
-    nvar = i.shape[-1]
-    i = np.resize(i,(nhdf,dm_max,nvar))
-    resized_zsnaps.append(i)
-dmatter_data = np.concatenate(resized_zsnaps,axis = 0)
-print(dmatter_data.shape)
-num_particles_dm = dmatter_data.shape[1]
+dm_data = np.load("subsets/WDM/Dark_Matter/z0sample.npy")
+snaps = dm_data.shape[0]
+nvar = dm_data.shape[-1]
+ml_add_mtx = np.empty((snaps,nvar))
+ml_div_mtx = np.empty((snaps,nvar))
+for s in range(snaps):
+    for i in range(3):
+        mean = dm_data[s,:,i].mean()
+        ml_add_mtx[s,i] = mean
+        dm_data[s,:,i] = dm_data[s,:,i] - mean
+        max_mag = abs(dm_data[s,:,i]).max()
+        ml_div_mtx[s,i] = max_mag
+        dm_data[s,:,i] = dm_data[s,:,i]/max_mag
+    ml_add_mtx[s,3] = dm_data[s,:,3].min()
+    dm_data[s,:,3] = (dm_data[s,:,3] - dm_data[s,:,3].min())+ 1e-8
+    ml_div_mtx[s,3] = 1
+    dm_data[s,:,3] = np.log10(dm_data[s,:,3])
+    dm_data[s,:,4] = np.log10(dm_data[s,:,4])
+    ml_add_mtx[s,4] = 0
+    ml_div_mtx[s,4] = 1
+    for i in range(5,8):
+        mean = dm_data[s,:,i].mean()
+        ml_add_mtx[s,i] = mean
+        dm_data[s,:,i] = dm_data[s,:,i] - mean
+        max_mag = abs(dm_data[s,:,i]).max()
+        ml_div_mtx[s,i] = max_mag
+        dm_data[s,:,i] = dm_data[s,:,i]/max_mag
+    
 
 data_in = gas_data
-data_out = dmatter_data
+data_out = dm_data
 
 # Convert to tensor
 data_in = torch.tensor(data_in,dtype=torch.float32)
@@ -157,7 +184,7 @@ print(torch.mean(data_out,dim=(0,1)))
 print('Initializing model...')
 dreams = DREAMS(
 	hidden_channels = 64,
-	n_epoch = 20,
+	n_epoch = 10,
 	batch_size = 16,
 	learning_rate = 1e-3,
 	num_nodes_gas = num_particles_gas,
@@ -190,7 +217,7 @@ dreams.train(data_in_train,data_in_test,data_out_train,data_out_test)
 
 # Save final model
 print('Saving final model...')
-torch.save(dreams,'dreams.pth')
+torch.save(dreams,'/scratch/11092/im68/dreams-pipeline/dreams.pth')
 print('done')
 
 
@@ -212,12 +239,16 @@ print('Evaluating...')
 
 # Load model weights
 # Define input samples for evaluation (random)
-ind_sample = np.random.randint(low=0, high=len(data_in), size=10)
+from Vis import make_ML_comp
+ind_sample = np.random.randint(low=0, high=len(data_in), size=3)
 sample = data_in[ind_sample]
 
-# Evaluate samples
 start_time = time.perf_counter()
 data_pred = dreams(sample)
+for i in range(3):
+    arr = [sample[0],data_pred[0]]
+    make_ML_comp(arr)
+    
 end_time = time.perf_counter()
 print('Size of evaluated dataset:')
 print(data_pred.shape)
