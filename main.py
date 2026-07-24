@@ -18,17 +18,17 @@ print(torch.cuda.is_available())
 print(f"Using device: {device}")
 
 # Dataset size/global constants
-num_snapshots = 128
-#num_particles_gas = 1e5
-#num_particles_dm = 1e5
-#num_features_gas = 12
-#num_features_dm = 12
+#num_snapshots = 128
+num_particles_gas = 1e5
+num_particles_dm = 1e5
+num_features_gas = 9
+num_features_dm = 8
 
 # Number of nearest neighbors in graph neural network
-num_k = 10
+num_k = 16
 
 # Define test/train split parameter (percentage of data devoted to testing)
-test_size = 0.20
+test_size = 0.1
 
 
 # -------------------- Data Loading -------------------- #
@@ -47,7 +47,7 @@ test_size = 0.20
 # Status update
 print('Loading data...')
 #Gas First
-gas_data = np.load("subsets/WDM/Baryons/z0sample.npy")
+gas_data = np.load("/scratch/11092/im68/subsets/WDM/Baryons/z0_200sample.npy")
 snaps = gas_data.shape[0]
 nvar = gas_data.shape[-1]
 tru_add_mtx = np.empty((snaps,nvar))
@@ -80,7 +80,7 @@ for s in range(snaps):
 
 #Dm Next...
 
-dm_data = np.load("subsets/WDM/Dark_Matter/z0sample.npy")
+dm_data = np.load("/scratch/11092/im68/subsets/WDM/Dark_Matter/z0_200sample.npy")
 snaps = dm_data.shape[0]
 nvar = dm_data.shape[-1]
 ml_add_mtx = np.empty((snaps,nvar))
@@ -112,6 +112,12 @@ for s in range(snaps):
 data_in = gas_data
 data_out = dm_data
 
+
+data_in[:,:,3] = data_in[:,:,3]/8.
+data_in[:,:,4] = data_in[:,:,4]/9.5
+data_out[:,:,3] = data_out[:,:,3]/8.        
+data_out[:,:,4] = data_out[:,:,4]/9.5
+
 # Convert to tensor
 data_in = torch.tensor(data_in,dtype=torch.float32)
 data_out = torch.tensor(data_out,dtype=torch.float32)
@@ -140,39 +146,37 @@ data_out = torch.tensor(data_out,dtype=torch.float32)
 print('Normalizing data...')
 
 # Loop over features for gas particles
-nhdf = data_in.size()[0]
-nvar = data_in.size()[-1]
-num_features_gas = nvar
-print(num_features_gas)
-print(nhdf,nvar)
-gas_means_metadata = torch.zeros(nhdf,nvar)
-gas_std_metadata = torch.zeros(nhdf,nvar)
-for f in range(nhdf):
-    for v in range(nvar)[:-1]: 
-        mean = torch.mean(data_in[f,:,v])
-        std = torch.std(data_in[f,:,v])
-        gas_means_metadata[f,v] = mean
-        gas_std_metadata[f,v] = std
-        data_in[f,:,v] = (data_in[f,:,v] - mean)/std
+#nhdf = data_in.size()[0]
+#nvar = data_in.size()[-1]
+#num_features_gas = nvar
+#print(num_features_gas)
+#print(nhdf,nvar)
+#gas_means_metadata = torch.zeros(nhdf,nvar)
+#gas_std_metadata = torch.zeros(nhdf,nvar)
+#for f in range(nhdf):
+#    for v in range(nvar)[:-1]: 
+#        mean = torch.mean(data_in[f,:,v])
+#        std = torch.std(data_in[f,:,v])
+#        gas_means_metadata[f,v] = mean
+#        gas_std_metadata[f,v] = std
+#        data_in[f,:,v] = (data_in[f,:,v] - mean)/std
 
 # Loop over features for DM particles
-nhdf = data_out.size()[0]
-nvar = data_out.size()[-1]
-num_features_dm = nvar
-print(num_features_dm)
-print(nhdf,nvar)
-dm_means_metadata = torch.zeros(nhdf,nvar)
-dm_std_metadata = torch.zeros(nhdf,nvar)
-for f in range(nhdf):
-    for v in range(nvar): 
-        mean = torch.mean(data_out[f,:,v])
-        std = torch.std(data_out[f,:,v])
-        dm_means_metadata[f,v] = mean
-        dm_std_metadata[f,v] = std
-        data_out[f,:,v] = (data_out[f,:,v] - mean)/std
-
-print(torch.mean(dm_std_metadata,dim=0))
-print(torch.mean(data_out,dim=(0,1)))        
+#nhdf = data_out.size()[0]
+#nvar = data_out.size()[-1]
+#num_features_dm = nvar
+#print(num_features_dm)
+#print(nhdf,nvar)
+#dm_means_metadata = torch.zeros(nhdf,nvar)
+#dm_std_metadata = torch.zeros(nhdf,nvar)
+#for f in range(nhdf):
+#    for v in range(nvar): 
+#        mean = torch.mean(data_out[f,:,v])
+#        std = torch.std(data_out[f,:,v])
+#        dm_means_metadata[f,v] = mean
+#        dm_std_metadata[f,v] = std
+#        data_out[f,:,v] = (data_out[f,:,v] - mean)/std
+       
 # -------------------- Model Initialization -------------------- #
 #
 # In the code block below, you will initialize an instance of your ML model, the architecture of which is pulled
@@ -183,8 +187,8 @@ print(torch.mean(data_out,dim=(0,1)))
 # Initialize model architecture
 print('Initializing model...')
 dreams = DREAMS(
-	hidden_channels = 64,
-	n_epoch = 10,
+	hidden_channels = 128,
+	n_epoch = 35,
 	batch_size = 16,
 	learning_rate = 1e-3,
 	num_nodes_gas = num_particles_gas,
@@ -217,7 +221,7 @@ dreams.train(data_in_train,data_in_test,data_out_train,data_out_test)
 
 # Save final model
 print('Saving final model...')
-torch.save(dreams,'/scratch/11092/im68/dreams-pipeline/dreams.pth')
+torch.save(dreams,'dreams.pth')
 print('done')
 
 
@@ -246,8 +250,8 @@ sample = data_in[ind_sample]
 start_time = time.perf_counter()
 data_pred = dreams(sample)
 for i in range(3):
-    arr = [sample[0],data_pred[0]]
-    make_ML_comp(arr)
+    arr = [data_out[ind_sample[i]],data_pred[i].detach().cpu().numpy()]
+    make_ML_comp(arr,i)
     
 end_time = time.perf_counter()
 print('Size of evaluated dataset:')

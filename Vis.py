@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
-
+from itertools import combinations
+from scipy.stats import binned_statistic_2d
 #arrs go True, then ML
-def make_ML_comp(arrs,scalar = "Density", snap = ,):
+def make_ML_comp(arrs,box,scalar = "Density"):
     if type(scalar) != str:
         raise TypeError("Scalar Input must be a string!")
     #load data
@@ -57,7 +58,7 @@ def make_ML_comp(arrs,scalar = "Density", snap = ,):
         bins= 500,
         range=None,
         expand_binnumbers=False)
-        tru_mesh = top_ax[a].pcolormesh(xedges, yedges, stat.T,cmap = "inferno")
+        tru_mesh = top_ax[a].pcolormesh(xedges, yedges, stat.T,cmap = "viridis")
         top_ax[a].set_xlabel(f'{c1.split("_")[0]}_coordinate [kpc]')
         top_ax[a].set_ylabel(f'{c2.split("_")[0]}_coordinate [kpc]')
         top_ax[a].set_title(f'{c1.split("_")[0]}{c2.split("_")[0]} {scalar} Projection')
@@ -91,4 +92,4 @@ def make_ML_comp(arrs,scalar = "Density", snap = ,):
     pos_right = bottom_ax[-1].get_position()
     center_x = (pos_left.x0 + pos_right.x1) / 2
     subfigs[1].suptitle(f"ML Evaluated Dark Matter {scalar} Distributions", fontsize=20, fontweight='bold',y=1.02,x=center_x)
-    plt.savefig(f"/scratch/11092/im68/visualizations/box_{box}snap_{snap}_comparison",bbox_inches='tight')
+    plt.savefig(f"box_{box}_comparison.png",bbox_inches='tight')

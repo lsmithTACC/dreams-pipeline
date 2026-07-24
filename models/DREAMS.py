@@ -29,7 +29,7 @@ from loss_functions.MSE import MSE
 from geomloss import SamplesLoss
 
 # Import Pytorch-Geometric library
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv,NNConv
 from scipy.spatial import cKDTree
 
 
@@ -45,25 +45,77 @@ class GCNModel(nn.Module):
         self.hidden_channels = hidden_channels
         self.activation = activation
 
-        self.conv1 = GCNConv(in_channels,hidden_channels)
-        self.conv2 = GCNConv(hidden_channels,hidden_channels)
-        self.conv3 = GCNConv(hidden_channels,out_channels)
-        self.conv4 = nn.Conv1d(in_channels=self.out_channels,out_channels=self.out_channels,kernel_size=5,padding='same')
+        #edge_network = nn.Sequential(
+        #        nn.Linear(hidden_channels,hidden_channels),
+        #        self.activation,
+        #        nn.Linear(hidden_channels,hidden_channels*hidden_channels)
+        #        )
 
-        self.upsample = nn.Upsample(scale_factor=2)
+        self.conv1 = GCNConv(hidden_channels,hidden_channels)
+        self.conv2 = GCNConv(hidden_channels,hidden_channels)
+        self.conv3 = GCNConv(hidden_channels,hidden_channels)
+        self.conv4 = GCNConv(hidden_channels,hidden_channels)
+        #self.conv5 = GCNConv(hidden_channels,hidden_channels)
+        #self.conv6 = GCNConv(hidden_channels,hidden_channels)
+        #self.conv7 = GCNConv(hidden_channels,hidden_channels)
+        #self.conv8 = GCNConv(hidden_channels,hidden_channels)
+
+        #self.conv1=NNConv(hidden_channels,hidden_channels,nn=edge_network,aggr="add")
+        #self.conv2=NNConv(hidden_channels,hidden_channels,nn=edge_network,aggr="add")
+        #self.conv3=NNConv(hidden_channels,hidden_channels,nn=edge_network,aggr="add")
+        #self.conv4=NNConv(hidden_channels,hidden_channels,nn=edge_network,aggr="add")
+        #self.conv5=NNConv(hidden_channels,hidden_channels,nn=edge_network,aggr="add")
+        #self.conv6=NNConv(hidden_channels,hidden_channels,nn=edge_network,aggr="add")
+
+        self.mlp_in =  nn.Linear(in_channels,hidden_channels)
+        self.mlp_out = nn.Linear(hidden_channels,out_channels)
+
+        #self.conv4 = nn.Conv1d(in_channels=self.out_channels,out_channels=self.out_channels,kernel_size=5,padding='same')
+
+        #self.upsample = nn.Upsample(scale_factor=2)
 
 
     def forward(self, x, edge_index, original_shape):
 
+
+        # Encoder
+        x = self.mlp_in(x)
+
         # Graph convolutions
-        x = self.conv1(x, edge_index=edge_index)
-        x = self.activation(x)
+        dx = self.conv1(x, edge_index=edge_index)
+        dx = self.activation(dx)
+        x = x + 0.1*dx
 
-        x = self.conv2(x, edge_index=edge_index)
-        x = self.activation(x)
+        dx = self.conv2(x, edge_index=edge_index)
+        dx = self.activation(dx)
+        x = x + 0.1*dx
 
-        x = self.conv3(x, edge_index=edge_index)
-        x = self.activation(x)
+        dx = self.conv3(x, edge_index=edge_index)
+        dx = self.activation(dx)
+        x = x + 0.1*dx
+
+        dx = self.conv4(x, edge_index=edge_index)
+        dx = self.activation(dx)
+        x = x + 0.1*dx
+
+        #dx = self.conv5(x, edge_index=edge_index)
+        #dx = self.activation(dx)
+        #x = x + 0.1*dx
+
+        #dx = self.conv6(x, edge_index=edge_index)
+        #dx = self.activation(dx)
+        #x = x + 0.1*dx
+
+        #dx = self.conv7(x, edge_index=edge_index)
+        #dx = self.activation(dx)
+        #x = x + 0.1*dx
+
+        #dx = self.conv8(x, edge_index=edge_index)
+        #dx = self.activation(dx)
+        #x = x + 0.1*dx
+
+        # Decoder
+        x = self.mlp_out(x)
 
         x = torch.reshape(x,(original_shape[0],original_shape[1],self.out_channels))
         #x = torch.transpose(x, 1, 2)
@@ -101,7 +153,7 @@ class DREAMS(Base_Model):
         self.num_features_gas = num_features_gas
         self.num_features_dm = num_features_dm
         self.num_k = num_k
-        self.activation = nn.ReLU()
+        self.activation = nn.ReLU() #nn.ReLU() #nn.Tanh()
 
         # Network for autoregressive map
         self.model = GCNModel(in_channels=self.num_features_gas,
@@ -111,7 +163,7 @@ class DREAMS(Base_Model):
         	num_nodes_out = self.num_nodes_dm,
         	activation = self.activation)
 
-        self.loss = MSE() #SamplesLoss("sinkhorn", blur=0.2, debias=False, scaling=0.5, backend='online')
+        #self.loss = SamplesLoss("sinkhorn", blur=0.05, debias=False, scaling=0.50, backend='online')
 
 
     # Forward pass function
@@ -177,7 +229,12 @@ class DREAMS(Base_Model):
         print('Starting training...')
         loss_vec_train = []
         loss_vec_test = []
+        blur_schedule = 0.30
+        chkpt_int = 5
         for it in range(0, self.n_epoch):
+
+            loss_function = SamplesLoss("sinkhorn", blur=blur_schedule, debias=False, scaling=0.50, backend='online')
+            blur_schedule = blur_schedule*0.95
 
             ind_shuffle = torch.randperm(data_in_train.size()[0])
             data_in = data_in_train[ind_shuffle]
@@ -187,6 +244,7 @@ class DREAMS(Base_Model):
 
             # Train loop 
             start_time = time.perf_counter()
+            count = 0.
             for ind in range(0,data_in.size()[0],self.batch_size):
                 optimizer.zero_grad()
                 ind_batch = range(ind,ind+self.batch_size)
@@ -196,27 +254,39 @@ class DREAMS(Base_Model):
 
                 yPred = self.forward(data_in[ind_batch])
 
-                loss = self.loss(yPred.contiguous(), data_out[ind_batch])
+                loss = loss_function(yPred.contiguous(), data_out[ind_batch])
                 loss = loss.mean()
 
                 loss.backward()
                 optimizer.step()
                 loss_track_train += float(loss.item())
+                count = count + 1
+            loss_track_train = loss_track_train/count
 
+            
             # Test loop
+            count = 0
             for ind in range(0,data_in_test.size()[0], self.batch_size):
                 ind_batch = range(ind,ind+self.batch_size)
                 if ind+self.batch_size > data_in_test.size()[0]:
                     ind_batch = range(ind,data_in_test.size()[0])
                 yPred_test = self.forward(data_in_test[ind_batch])    
-                loss_track_test += float(self.loss(yPred_test.contiguous(), data_out_test[ind_batch]).mean().item()) 
-
+                loss_track_test += float(loss_function(yPred_test.contiguous(), data_out_test[ind_batch]).mean().item()) 
+                count = count + 1
+            loss_track_test = loss_track_test/count    
             end_time = time.perf_counter()
             print(
                 'Epoch: ' + str(it) + '  |  ' + 'Train Loss: ' + str(loss_track_train) + '  |  ' + 'Test Loss: ' + str(loss_track_test) + '  |  ' + 'Time: ' + str(int(end_time-start_time))
             )
             loss_vec_train.append(loss_track_train)
             loss_vec_test.append(loss_track_test)
+
+            if (it+1)%chkpt_int==0 or it==0:
+                torch.save(self,'output/dreams_epoch_'+str(it+1)+'.pth')
+        
+        # Save loss over iteration
+        np.savez('output/loss_dict.npz',train_loss=np.array(loss_vec_train),test_loss=np.array(loss_vec_test))
+
 
         # Plot and save test/train loss behavior
         fig, ax = plt.subplots(figsize=(5, 5))
